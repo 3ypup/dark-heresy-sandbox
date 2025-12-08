@@ -27,7 +27,7 @@ async def generate_json(prompt: str, system_prompt: str | None = None) -> Dict[s
     if system_prompt:
         payload["system"] = system_prompt
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
+    async with httpx.AsyncClient(timeout=600.0) as client:
         resp = await client.post(url, json=payload)
         if resp.status_code != 200:
             raise OllamaError(f"Ollama error: {resp.status_code} {resp.text}")
