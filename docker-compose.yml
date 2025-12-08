@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"   # чтобы при желании можно было дергать с хоста
+    volumes:
+      - ollama:/root/.ollama
+    # для CPU-only достаточно так; если когда-нибудь захочешь GPU – можно будет добавить --gpus
+
+  backend:
+    build: ./backend
+    container_name: dh_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: "sqlite:///./data/app.db"
+      OLLAMA_BASE_URL: "http://ollama:11434"
+      OLLAMA_MODEL: "llama3.2"
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/data:/app/data
+    ports:
+      - "8000:8000"
+    depends_on:
+      - ollama
+
+volumes:
+  ollama:
+

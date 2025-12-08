@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dark Heresy Sandbox</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0b0d10;
+      color: #e5e7eb;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #111827;
+      padding: 12px 20px;
+      border-bottom: 1px solid #1f2937;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 {
+      font-size: 18px;
+      margin: 0;
+    }
+    header small {
+      color: #9ca3af;
+      font-size: 12px;
+    }
+    main {
+      display: grid;
+      grid-template-columns: minmax(0, 320px) minmax(0, 1fr);
+      gap: 16px;
+      padding: 16px;
+    }
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+    .card {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+    }
+    .card h2 {
+      font-size: 16px;
+      margin: 0 0 8px;
+    }
+    .card h3 {
+      font-size: 14px;
+      margin: 8px 0 4px;
+    }
+    .card p {
+      font-size: 13px;
+      margin: 4px 0;
+      white-space: pre-wrap;
+    }
+    label {
+      font-size: 12px;
+      display: block;
+      margin-bottom: 4px;
+      color: #9ca3af;
+    }
+    input, select, textarea, button {
+      font: inherit;
+    }
+    input[type="number"],
+    input[type="text"],
+    select,
+    textarea {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid #374151;
+      background: #020617;
+      color: #e5e7eb;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+    textarea {
+      min-height: 60px;
+      resize: vertical;
+    }
+    button {
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      background: #4b5563;
+      color: #e5e7eb;
+      margin-right: 4px;
+      margin-top: 4px;
+    }
+    button.primary {
+      background: #6366f1;
+    }
+    button.danger {
+      background: #b91c1c;
+    }
+    button.outline {
+      background: transparent;
+      border: 1px solid #4b5563;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+    .small {
+      font-size: 12px;
+      color: #9ca3af;
+    }
+    .list-item {
+      padding: 6px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+    .list-item:hover {
+      background: #1f2937;
+    }
+    .list-item.active {
+      background: #374151;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .row > * {
+      flex: 1;
+    }
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 8px;
+      background: #1f2937;
+      font-size: 11px;
+      color: #9ca3af;
+      margin-right: 4px;
+      margin-bottom: 4px;
+    }
+    .logs {
+      max-height: 260px;
+      overflow-y: auto;
+      border-top: 1px solid #1f2937;
+      margin-top: 8px;
+      padding-top: 8px;
+    }
+    .log-entry {
+      font-size: 11px;
+      padding: 4px 0;
+      border-bottom: 1px dashed #1f2937;
+    }
+    .log-entry:last-child {
+      border-bottom: none;
+    }
+    .log-entry span.time {
+      color: #6b7280;
+      margin-right: 4px;
+    }
+    .log-entry span.type {
+      color: #a855f7;
+      margin-right: 4px;
+    }
+    .muted {
+      color: #6b7280;
+      font-size: 12px;
+    }
+    .status-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      margin-left: 4px;
+    }
+    .status-pending { background: #1e293b; color: #e5e7eb; }
+    .status-active { background: #065f46; color: #bbf7d0; }
+    .status-done   { background: #111827; color: #9ca3af; border: 1px solid #4b5563; }
+  </style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Dark Heresy Sandbox</h1>
+    <small>Генератор приключений и сцен • API + Ollama</small>
+  </div>
+  <div class="small">
+    UI /ui • API /docs
+  </div>
+</header>
+
+<main>
+  <!-- Левая колонка: создание и выбор кампании -->
+  <section>
+    <div class="card">
+      <h2>Создать новое приключение</h2>
+      <form id="autoForm">
+        <label>Количество игроков</label>
+        <input type="number" id="numPlayers" min="1" max="8" value="3" required />
+
+        <label>Уровень опыта (XP на персонажа)</label>
+        <input type="number" id="expLevel" min="0" step="100" value="1000" required />
+
+        <label>Тип мира (опционально)</label>
+        <select id="world">
+          <option value="">Случайный</option>
+          <option value="hive_world">Hive World (мир-улей)</option>
+          <option value="forge_world">Forge World (мир-кузница)</option>
+          <option value="feudal_world">Feudal World (феодальный)</option>
+          <option value="death_world">Death World (смертельный)</option>
+          <option value="agri_world">Agri World (агромир)</option>
+        </select>
+
+        <button type="submit" class="primary" id="autoBtn">Создать приключение</button>
+        <div class="small" id="autoStatus"></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Кампании</h2>
+      <div id="campaignList"></div>
+      <button class="outline" id="reloadCampaignsBtn">Обновить список</button>
+    </div>
+  </section>
+
+  <!-- Правая колонка: детали кампании / сцены -->
+  <section>
+    <div class="card" id="campaignDetails" style="display:none;">
+      <h2 id="campName"></h2>
+      <p class="small" id="campMeta"></p>
+      <p id="campDesc"></p>
+    </div>
+
+    <div class="card" id="sceneBlock" style="display:none;">
+      <div class="row">
+        <div>
+          <h3 id="sceneName"></h3>
+          <p class="small" id="sceneMeta"></p>
+        </div>
+        <div>
+          <button id="setScenePendingBtn" class="outline" style="display:none;">В ожидании</button>
+          <button id="setSceneActiveBtn" class="outline" style="display:none;">Сделать активной</button>
+          <button id="setSceneDoneBtn" class="outline" style="display:none;">Завершить</button>
+        </div>
+      </div>
+      <p id="sceneDesc"></p>
+
+      <div id="locationInfo" class="small"></div>
+
+      <div id="encounterBlock" style="display:none; margin-top:8px;">
+        <h3>Боестолкновение</h3>
+        <p><strong>Планировка:</strong></p>
+        <p id="encLayout"></p>
+        <p><strong>Враги:</strong></p>
+        <p id="encNPCs"></p>
+        <p><strong>Цели по исходам:</strong></p>
+        <p class="small"><strong>Победа:</strong> <span id="objVictory"></span></p>
+        <p class="small"><strong>Ничья:</strong> <span id="objDraw"></span></p>
+        <p class="small"><strong>Поражение:</strong> <span id="objDefeat"></span></p>
+        <p class="small"><strong>Отступление:</strong> <span id="objRetreat"></span></p>
+
+        <div style="margin-top:8px;">
+          <label>Заметки мастера (что произошло в бою)</label>
+          <textarea id="encNotes"></textarea>
+          <div>
+            <span class="small">Результат боя:</span><br/>
+            <button id="btnEncVictory">Победа</button>
+            <button id="btnEncDraw">Ничья</button>
+            <button id="btnEncDefeat" class="danger">Поражение</button>
+            <button id="btnEncRetreat">Отступление</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:10px; border-top:1px solid #1f2937; padding-top:8px;">
+        <h3>Проверка</h3>
+        <form id="checkForm">
+          <div class="row">
+            <div>
+              <label>Кто бросает</label>
+              <input type="text" id="checkActor" placeholder="Имя персонажа / NPC" />
+            </div>
+            <div>
+              <label>Тип проверки</label>
+              <input type="text" id="checkType" placeholder="Intimidate, Charm, Awareness..." />
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Сложность (описание)</label>
+              <input type="text" id="checkDiffLabel" placeholder="Легко, Сложно..." />
+            </div>
+            <div>
+              <label>Модификатор</label>
+              <input type="number" id="checkDiffValue" placeholder="+10 / -20" />
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label>Результат</label>
+              <select id="checkResult">
+                <option value="success">Успех</option>
+                <option value="failure">Провал</option>
+              </select>
+            </div>
+            <div>
+              <label>Степени (DoS/DoF)</label>
+              <input type="number" id="checkDegrees" placeholder="2, -1..." />
+            </div>
+          </div>
+          <label>Заметка</label>
+          <textarea id="checkNote" placeholder="Например: игрок шантажировал писаря, показывая розетку Инквизиции"></textarea>
+          <button type="submit">Сохранить проверку</button>
+          <span class="small" id="checkStatus"></span>
+        </form>
+      </div>
+    </div>
+
+    <div class="card" id="scenesListBlock" style="display:none;">
+      <h3>Сцены кампании</h3>
+      <div id="scenesList"></div>
+    </div>
+
+    <div class="card" id="logsBlock" style="display:none;">
+      <h3>Журнал кампании</h3>
+      <div class="logs" id="logs"></div>
+    </div>
+  </section>
+</main>
+
+<script>
+  const apiBase = ""; // тот же origin
+
+  let campaigns = [];
+  let currentCampaign = null;
+  let currentScenes = [];
+  let currentLocations = [];
+  let currentScene = null;
+  let currentEncounter = null;
+
+  // Утилита: запрос
+  async function api(path, options = {}) {
+    const res = await fetch(apiBase + path, {
+      headers: { "Content-Type": "application/json" },
+      ...options,
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || res.statusText);
+    }
+    return res.json();
+  }
+
+  function setText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text ?? "";
+  }
+
+  function formatDate(s) {
+    if (!s) return "";
+    const d = new Date(s);
+    if (Number.isNaN(d.getTime())) return s;
+    return d.toLocaleString("ru-RU");
+  }
+
+  // Загрузка списка кампаний
+  async function loadCampaigns() {
+    try {
+      const list = await api("/campaigns");
+      campaigns = list;
+      renderCampaignList();
+    } catch (e) {
+      console.error(e);
+      alert("Ошибка загрузки кампаний: " + e.message);
+    }
+  }
+
+  function renderCampaignList() {
+    const cont = document.getElementById("campaignList");
+    cont.innerHTML = "";
+    if (!campaigns.length) {
+      cont.innerHTML = '<p class="muted">Пока нет кампаний. Создай новое приключение выше.</p>';
+      return;
+    }
+    campaigns.forEach(c => {
+      const div = document.createElement("div");
+      div.className = "list-item" + (currentCampaign && currentCampaign.id === c.id ? " active" : "");
+      div.textContent = c.name;
+      div.onclick = () => selectCampaign(c.id);
+      cont.appendChild(div);
+    });
+  }
+
+  async function selectCampaign(id) {
+    try {
+      currentCampaign = await api(`/campaigns/${id}`);
+      currentScenes = await api(`/campaigns/${id}/scenes`);
+      currentLocations = await api(`/campaigns/${id}/locations`);
+      renderCampaignList();
+      renderCampaignDetails();
+      renderScenesList();
+      await loadLogs(id);
+      // сброс текущей сцены
+      if (currentScenes.length) {
+        selectScene(currentScenes[0].id);
+      } else {
+        currentScene = null;
+        currentEncounter = null;
+        renderSceneDetails();
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Ошибка загрузки кампании: " + e.message);
+    }
+  }
+
+  function renderCampaignDetails() {
+    if (!currentCampaign) {
+      document.getElementById("campaignDetails").style.display = "none";
+      return;
+    }
+    document.getElementById("campaignDetails").style.display = "";
+    setText("campName", currentCampaign.name);
+    setText("campDesc", currentCampaign.description || "");
+    setText("campMeta", `ID: ${currentCampaign.id} • создано: ${formatDate(currentCampaign.created_at)}`);
+  }
+
+  function renderScenesList() {
+    const block = document.getElementById("scenesListBlock");
+    const cont = document.getElementById("scenesList");
+    if (!currentCampaign) {
+      block.style.display = "none";
+      return;
+    }
+    block.style.display = "";
+    cont.innerHTML = "";
+    if (!currentScenes.length) {
+      cont.innerHTML = '<p class="muted">Сцен ещё нет.</p>';
+      return;
+    }
+    currentScenes.forEach(s => {
+      const div = document.createElement("div");
+      div.className = "list-item" + (currentScene && currentScene.id === s.id ? " active" : "");
+      div.innerHTML = `
+        <strong>${s.name}</strong><br>
+        <span class="small">
+          Тип: ${s.scene_type} • Статус: ${s.status}
+        </span>
+      `;
+      div.onclick = () => selectScene(s.id);
+      cont.appendChild(div);
+    });
+  }
+
+  async function selectScene(sceneId) {
+    const scene = currentScenes.find(s => s.id === sceneId);
+    if (!scene) return;
+    currentScene = scene;
+    try {
+      // пытаемся загрузить encounter, если боевка
+      if (scene.scene_type === "combat") {
+        currentEncounter = await api(`/scenes/${scene.id}/encounter`).catch(() => null);
+      } else {
+        currentEncounter = null;
+      }
+    } catch (e) {
+      console.warn("encounter load error", e);
+      currentEncounter = null;
+    }
+    renderScenesList();
+    renderSceneDetails();
+  }
+
+  function renderSceneDetails() {
+    const block = document.getElementById("sceneBlock");
+    const logsBlock = document.getElementById("logsBlock");
+    if (!currentScene) {
+      block.style.display = "none";
+      logsBlock.style.display = currentCampaign ? "" : "none";
+      return;
+    }
+    block.style.display = "";
+    logsBlock.style.display = "";
+
+    setText("sceneName", currentScene.name);
+    const statusClass =
+      currentScene.status === "pending" ? "status-pending" :
+      currentScene.status === "active" ? "status-active" : "status-done";
+
+    document.getElementById("sceneMeta").innerHTML =
+      `ID: ${currentScene.id} • тип: ${currentScene.scene_type}` +
+      ` <span class="status-pill ${statusClass}">${currentScene.status}</span>`;
+
+    setText("sceneDesc", currentScene.description || "");
+
+    // инфа о локации
+    const loc = currentLocations.find(l => l.id === currentScene.location_id);
+    if (loc) {
+      document.getElementById("locationInfo").innerHTML =
+        `<strong>Локация:</strong> ${loc.name}<br>${loc.description || ""}`;
+    } else {
+      document.getElementById("locationInfo").innerHTML = "";
+    }
+
+    // кнопки статуса сцены (MVP — не реализуем API изменения, только UI; можно расширить позже)
+    document.getElementById("setScenePendingBtn").style.display = "none";
+    document.getElementById("setSceneActiveBtn").style.display = "none";
+    document.getElementById("setSceneDoneBtn").style.display = "none";
+
+    // Encounter
+    const encBlock = document.getElementById("encounterBlock");
+    if (currentScene.scene_type === "combat" && currentEncounter) {
+      encBlock.style.display = "";
+      setText("encLayout", currentEncounter.layout_scheme || "");
+      setText("encNPCs", currentEncounter.npc_summary || "");
+      setText("objVictory", currentEncounter.objective_victory || "");
+      setText("objDraw", currentEncounter.objective_draw || "");
+      setText("objDefeat", currentEncounter.objective_defeat || "");
+      setText("objRetreat", currentEncounter.objective_retreat || "");
+    } else if (currentScene.scene_type === "combat" && !currentEncounter) {
+      encBlock.style.display = "";
+      setText("encLayout", "Для этой сцены ещё не сгенерировано столкновение. Воспользуйся /docs → /scenes/{id}/generate_encounter.");
+      setText("encNPCs", "");
+      setText("objVictory", "");
+      setText("objDraw", "");
+      setText("objDefeat", "");
+      setText("objRetreat", "");
+    } else {
+      encBlock.style.display = "none";
+    }
+  }
+
+  async function loadLogs(campaignId) {
+    try {
+      const logs = await api(`/campaigns/${campaignId}/logs`);
+      const cont = document.getElementById("logs");
+      const block = document.getElementById("logsBlock");
+      block.style.display = "";
+      cont.innerHTML = "";
+      if (!logs.length) {
+        cont.innerHTML = '<p class="muted">Журнал пуст.</p>';
+        return;
+      }
+      logs.forEach(l => {
+        const div = document.createElement("div");
+        div.className = "log-entry";
+        div.innerHTML = `
+          <span class="time">${formatDate(l.created_at)}</span>
+          <span class="type">[${l.entry_type}]</span>
+          <span>${l.text}</span>
+        `;
+        cont.appendChild(div);
+      });
+    } catch (e) {
+      console.error("logs error", e);
+    }
+  }
+
+  // --- Обработчик создания автоприключения ---
+  document.getElementById("autoForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const numPlayers = parseInt(document.getElementById("numPlayers").value || "0", 10);
+    const expLevel = parseInt(document.getElementById("expLevel").value || "0", 10);
+    const world = document.getElementById("world").value || null;
+    const random_world = !world;
+
+    const btn = document.getElementById("autoBtn");
+    const statusEl = document.getElementById("autoStatus");
+    btn.disabled = true;
+    statusEl.textContent = "Генерация кампании через Ollama...";
+
+    try {
+      const body = {
+        num_players: numPlayers,
+        exp_level: expLevel,
+        world: world,
+        random_world: random_world
+      };
+      const data = await api("/adventures/autogenerate", {
+        method: "POST",
+        body: JSON.stringify(body)
+      });
+
+      statusEl.textContent = `Готово: создана кампания "${data.campaign.name}" (ID ${data.campaign.id})`;
+      // обновляем список
+      await loadCampaigns();
+      await selectCampaign(data.campaign.id);
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = "Ошибка: " + err.message;
+      alert("Ошибка при генерации приключения: " + err.message);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+
+  // Обновление списка кампаний
+  document.getElementById("reloadCampaignsBtn").addEventListener("click", () => {
+    loadCampaigns();
+  });
+
+  // --- Обработчик проверки ---
+  document.getElementById("checkForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!currentScene) {
+      alert("Сначала выбери сцену.");
+      return;
+    }
+    const actor = document.getElementById("checkActor").value || "Неизвестный";
+    const type = document.getElementById("checkType").value || "Unknown";
+    const diffLabel = document.getElementById("checkDiffLabel").value || null;
+    const diffValRaw = document.getElementById("checkDiffValue").value;
+    const diffValue = diffValRaw === "" ? null : parseInt(diffValRaw, 10);
+    const result = document.getElementById("checkResult").value;
+    const degRaw = document.getElementById("checkDegrees").value;
+    const degrees = degRaw === "" ? null : parseInt(degRaw, 10);
+    const note = document.getElementById("checkNote").value || null;
+
+    const statusEl = document.getElementById("checkStatus");
+    statusEl.textContent = "Сохраняем проверку...";
+    try {
+      await api("/checks", {
+        method: "POST",
+        body: JSON.stringify({
+          scene_id: currentScene.id,
+          actor_name: actor,
+          check_type: type,
+          difficulty_label: diffLabel,
+          difficulty_value: diffValue,
+          result: result,
+          degrees: degrees,
+          note: note
+        })
+      });
+      statusEl.textContent = "Сохранено";
+      // обновляем логи
+      if (currentCampaign) {
+        await loadLogs(currentCampaign.id);
+      }
+    } catch (err) {
+      console.error(err);
+      statusEl.textContent = "Ошибка: " + err.message;
+      alert("Ошибка при сохранении проверки: " + err.message);
+    }
+  });
+
+  // --- Обработчики исходов боя ---
+  async function resolveEncounter(outcome) {
+    if (!currentEncounter || !currentScene || !currentCampaign) {
+      alert("Нет активного боевого столкновения.");
+      return;
+    }
+    const notes = document.getElementById("encNotes").value || null;
+    try {
+      const res = await api(`/encounters/${currentEncounter.id}/resolve`, {
+        method: "POST",
+        body: JSON.stringify({
+          outcome,
+          defeated_npc_ids: null,
+          gm_notes: notes
+        })
+      });
+      alert(res.message || "Исход боя сохранён.");
+      await loadLogs(currentCampaign.id);
+    } catch (err) {
+      console.error(err);
+      alert("Ошибка при сохранении исхода боя: " + err.message);
+    }
+  }
+
+  document.getElementById("btnEncVictory").addEventListener("click", () => resolveEncounter("victory"));
+  document.getElementById("btnEncDraw").addEventListener("click", () => resolveEncounter("draw"));
+  document.getElementById("btnEncDefeat").addEventListener("click", () => resolveEncounter("defeat"));
+  document.getElementById("btnEncRetreat").addEventListener("click", () => resolveEncounter("retreat"));
+
+  // Инициализация
+  loadCampaigns();
+</script>
+</body>
+</html>
+
