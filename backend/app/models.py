@@ -1,30 +1,50 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime
-from sqlalchemy.orm import relationship
 from datetime import datetime
+from enum import Enum as PyEnum
+
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Text,
+    DateTime,
+    ForeignKey,
+)
+from sqlalchemy.orm import relationship
 
 from .database import Base
+
+
+class SceneType(str, PyEnum):
+    INTRO = "intro"
+    SOCIAL = "social"
+    INVESTIGATION = "investigation"
+    COMBAT = "combat"
+    FINAL = "final"
+
+
+class LogEntryType(str, PyEnum):
+    INFO = "info"
+    CHECK = "check"
+    CHOICE = "choice"
+    COMBAT_RESULT = "combat_result"
 
 
 class Campaign(Base):
     __tablename__ = "campaigns"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(200), nullable=False)
-    description = Column(Text, nullable=True)
+    title = Column(String(255), nullable=False)
+    world = Column(String(255), nullable=True)
+    premise = Column(Text, nullable=True)      # краткое описание кампании
+    intro_text = Column(Text, nullable=True)   # вступление
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    locations = relationship(
-        "Location", back_populates="campaign", cascade="all, delete-orphan"
-    )
-    scenes = relationship(
-        "Scene", back_populates="campaign", cascade="all, delete-orphan"
-    )
-    npcs = relationship(
-        "NPC", back_populates="campaign", cascade="all, delete-orphan"
-    )
-    logs = relationship(
-        "LogEntry", back_populates="campaign", cascade="all, delete-orphan"
-    )
+    locations = relationship("Location", back_populates="campaign", cascade="all, delete-orphan")
+    scenes = relationship("Scene", back_populates="campaign", cascade="all, delete-orphan")
+    npcs = relationship("NPC", back_populates="campaign", cascade="all, delete-orphan")
+    logs = relationship("LogEntry", back_populates="campaign", cascade="all, delete-orphan")
+    state = relationship("CampaignState", back_populates="campaign", uselist=False, cascade="all, delete-orphan")
 
 
 class Location(Base):
@@ -32,11 +52,26 @@ class Location(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=False)
-    name = Column(String(200), nullable=False)
+    name = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
+    ascii_map = Column(Text, nullable=True)  # ASCII-схема локации
 
     campaign = relationship("Campaign", back_populates="locations")
     scenes = relationship("Scene", back_populates="location")
+
+
+class NPC(Base):
+    __tablename__ = "npcs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=False)
+    name = Column(String(255), nullable=False)
+    role = Column(String(255), nullable=True)         # кто он по отношению к кампании
+    faction = Column(String(255), nullable=True)
+    description = Column(Text, nullable=True)
+    notes = Column(Text, nullable=True)               # подсказки мастеру
+
+    campaign = relationship("Campaign", back_populates="npcs")
 
 
 class Scene(Base):
@@ -45,30 +80,52 @@ class Scene(Base):
     id = Column(Integer, primary_key=True, index=True)
     campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=False)
     location_id = Column(Integer, ForeignKey("locations.id"), nullable=True)
-    name = Column(String(200), nullable=False)
-    description = Column(Text, nullable=True)
-    scene_type = Column(String(50), default="social")  # social / investigation / combat
-    status = Column(String(50), default="pending")     # pending / active / done
+
+    name = Column(String(255), nullable=False)
+    scene_type = Column(String(32), nullable=False, default=SceneType.SOCIAL.value)
+    order_index = Column(Integer, nullable=True)  # для сортировки по умолчанию
+
+    # то, что мастер рассказывает игрокам
+    player_text = Column(Text, nullable=True)
+    # заметки мастеру (секреты, крючки, варианты развития)
+    gm_notes = Column(Text, nullable=True)
+    # JSON со списком диалогов (как текст)
+    dialogues_json = Column(Text, nullable=True)
 
     campaign = relationship("Campaign", back_populates="scenes")
     location = relationship("Location", back_populates="scenes")
-    encounter = relationship("Encounter", back_populates="scene", uselist=False)
-    checks = relationship("Check", back_populates="scene")
-    logs = relationship("LogEntry", back_populates="scene")
+    encounter = relationship("Encounter", back_populates="scene", uselist=False, cascade="all, delete-orphan")
+
+    # ВАЖНО: явно указываем, какие foreign keys использовать
+    choices = relationship(
+        "SceneChoice",
+        back_populates="scene",
+        cascade="all, delete-orphan",
+        foreign_keys="SceneChoice.scene_id",
+    )
 
 
-class NPC(Base):
-    __tablename__ = "npcs"
+class SceneChoice(Base):
+    __tablename__ = "scene_choices"
 
     id = Column(Integer, primary_key=True, index=True)
-    campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=False)
-    name = Column(String(200), nullable=False)
-    role = Column(String(200), nullable=True)
-    faction = Column(String(200), nullable=True)
-    description = Column(Text, nullable=True)
-    status = Column(String(50), default="alive")  # alive / dead / missing
+    scene_id = Column(Integer, ForeignKey("scenes.id"), nullable=False)
+    label = Column(String(255), nullable=False)       # короткое название выбора
+    description = Column(Text, nullable=True)         # подробность
+    result_hint = Column(Text, nullable=True)         # к чему ориентировочно приведет
+    to_scene_id = Column(Integer, ForeignKey("scenes.id"), nullable=True)
+    condition_json = Column(Text, nullable=True)      # на будущее: условия (по флагам)
 
-    campaign = relationship("Campaign", back_populates="npcs")
+    # Здесь тоже указываем foreign_keys, чтобы убрать двусмысленность
+    scene = relationship(
+        "Scene",
+        back_populates="choices",
+        foreign_keys=[scene_id],
+    )
+    to_scene = relationship(
+        "Scene",
+        foreign_keys=[to_scene_id],
+    )
 
 
 class Encounter(Base):
@@ -77,38 +134,25 @@ class Encounter(Base):
     id = Column(Integer, primary_key=True, index=True)
     scene_id = Column(Integer, ForeignKey("scenes.id"), nullable=False)
 
-    # 1.1 – планировка схемой с расположением NPC и геометрией
-    layout_scheme = Column(Text, nullable=True)  # текст или условный JSON
-
-    # Краткое текстовое описание групп NPC (например: "3 культиста, 1 псайкер, 2 гвардейца")
-    npc_summary = Column(Text, nullable=True)
-
-    # Цели / последствия для разных исходов боя
-    objective_victory = Column(Text, nullable=True)
-    objective_draw = Column(Text, nullable=True)
-    objective_defeat = Column(Text, nullable=True)
-    objective_retreat = Column(Text, nullable=True)
-
-    status = Column(String(50), default="pending")  # pending / resolved
-    outcome = Column(String(50), nullable=True)     # victory / draw / defeat / retreat
+    objectives = Column(Text, nullable=True)   # условия победы/ничьей/поражения
+    npc_summary = Column(Text, nullable=True)  # краткое описание врагов / сил
+    victory_text = Column(Text, nullable=True)
+    defeat_text = Column(Text, nullable=True)
+    escape_text = Column(Text, nullable=True)
 
     scene = relationship("Scene", back_populates="encounter")
 
 
-class Check(Base):
-    __tablename__ = "checks"
+class CampaignState(Base):
+    __tablename__ = "campaign_state"
 
     id = Column(Integer, primary_key=True, index=True)
-    scene_id = Column(Integer, ForeignKey("scenes.id"), nullable=False)
-    actor_name = Column(String(200), nullable=False)
-    check_type = Column(String(200), nullable=False)  # Intimidate, Charm, Awareness и т.п.
-    difficulty_label = Column(String(100), nullable=True)
-    difficulty_value = Column(Integer, nullable=True)  # +10, -20 и т.п.
-    result = Column(String(50), nullable=False)        # success / failure
-    degrees = Column(Integer, nullable=True)           # количество степеней (+/-)
-    note = Column(Text, nullable=True)
+    campaign_id = Column(Integer, ForeignKey("campaigns.id"), unique=True, nullable=False)
+    current_scene_id = Column(Integer, ForeignKey("scenes.id"), nullable=True)
+    flags_json = Column(Text, nullable=True)  # {"писарь_помог": true, ...}
 
-    scene = relationship("Scene", back_populates="checks")
+    campaign = relationship("Campaign", back_populates="state")
+    current_scene = relationship("Scene")
 
 
 class LogEntry(Base):
@@ -116,11 +160,9 @@ class LogEntry(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     campaign_id = Column(Integer, ForeignKey("campaigns.id"), nullable=False)
-    scene_id = Column(Integer, ForeignKey("scenes.id"), nullable=True)
-    entry_type = Column(String(50), nullable=False)  # system / gm_note / check / encounter
-    text = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    entry_type = Column(String(32), nullable=False, default=LogEntryType.INFO.value)
+    content = Column(Text, nullable=False)
+    metadata_json = Column(Text, nullable=True)
 
     campaign = relationship("Campaign", back_populates="logs")
-    scene = relationship("Scene", back_populates="logs")
-

@@ -6,10 +6,9 @@ services:
     container_name: ollama
     restart: unless-stopped
     ports:
-      - "11434:11434"   # чтобы при желании можно было дергать с хоста
+      - "11434:11434"           # если захочешь дергать ollama снаружи
     volumes:
-      - ollama:/root/.ollama
-    # для CPU-only достаточно так; если когда-нибудь захочешь GPU – можно будет добавить --gpus
+      - ollama:/root/.ollama    # чтобы модели не исчезали при пересборке
 
   backend:
     build: ./backend
@@ -17,8 +16,12 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: "sqlite:///./data/app.db"
+
+      # настройки для backend/app/ollama_client.py
       OLLAMA_BASE_URL: "http://ollama:11434"
       OLLAMA_MODEL: "llama3.2:1b"
+      OLLAMA_TIMEOUT: "900.0"
+
     volumes:
       - ./backend/app:/app/app
       - ./backend/data:/app/data
@@ -29,4 +32,3 @@ services:
 
 volumes:
   ollama:
-

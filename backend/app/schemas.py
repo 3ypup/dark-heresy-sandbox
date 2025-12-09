@@ -1,195 +1,193 @@
-from pydantic import BaseModel
-from typing import Optional, Literal, List
 from datetime import datetime
+from typing import List, Optional, Any
+
+from pydantic import BaseModel
+
+from .models import SceneType, LogEntryType
 
 
-# ---- Campaign ----
+# -------- Basic read/create models --------
 
-class CampaignBase(BaseModel):
+class LocationBase(BaseModel):
     name: str
     description: Optional[str] = None
+    ascii_map: Optional[str] = None
+
+
+class LocationCreate(LocationBase):
+    pass
+
+
+class LocationRead(LocationBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+
+class NPCBase(BaseModel):
+    name: str
+    role: Optional[str] = None
+    faction: Optional[str] = None
+    description: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class NPCCreate(NPCBase):
+    pass
+
+
+class NPCRead(NPCBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+
+class EncounterBase(BaseModel):
+    objectives: Optional[str] = None
+    npc_summary: Optional[str] = None
+    victory_text: Optional[str] = None
+    defeat_text: Optional[str] = None
+    escape_text: Optional[str] = None
+
+
+class EncounterCreate(EncounterBase):
+    pass
+
+
+class EncounterRead(EncounterBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+
+class SceneChoiceBase(BaseModel):
+    label: str
+    description: Optional[str] = None
+    result_hint: Optional[str] = None
+    to_scene_id: Optional[int] = None
+    condition_json: Optional[str] = None
+
+
+class SceneChoiceCreate(SceneChoiceBase):
+    pass
+
+
+class SceneChoiceRead(SceneChoiceBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+
+class SceneBase(BaseModel):
+    name: str
+    scene_type: str = SceneType.SOCIAL.value
+    order_index: Optional[int] = None
+    location_id: Optional[int] = None
+
+    player_text: Optional[str] = None
+    gm_notes: Optional[str] = None
+    dialogues_json: Optional[str] = None
+
+
+class SceneCreate(SceneBase):
+    encounter: Optional[EncounterCreate] = None
+    choices: List[SceneChoiceCreate] = []
+
+
+class SceneRead(SceneBase):
+    id: int
+    encounter: Optional[EncounterRead] = None
+    choices: List[SceneChoiceRead] = []
+
+    class Config:
+        orm_mode = True
+
+
+class CampaignBase(BaseModel):
+    title: str
+    world: Optional[str] = None
+    premise: Optional[str] = None
+    intro_text: Optional[str] = None
 
 
 class CampaignCreate(CampaignBase):
-    pass
+    locations: List[LocationCreate] = []
+    scenes: List[SceneCreate] = []
+    npcs: List[NPCCreate] = []
 
 
 class CampaignRead(CampaignBase):
     id: int
     created_at: datetime
+    locations: List[LocationRead] = []
+    scenes: List[SceneRead] = []
+    npcs: List[NPCRead] = []
 
     class Config:
         orm_mode = True
 
 
-# ---- Location ----
-
-class LocationBase(BaseModel):
-    name: str
-    description: Optional[str] = None
-
-
-class LocationCreate(LocationBase):
-    campaign_id: int
-
-
-class LocationRead(LocationBase):
+class CampaignSummary(BaseModel):
     id: int
-    campaign_id: int
-
-    class Config:
-        orm_mode = True
-
-
-# ---- Scene ----
-
-SceneType = Literal["social", "investigation", "combat"]
-SceneStatus = Literal["pending", "active", "done"]
-
-
-class SceneBase(BaseModel):
-    name: str
-    description: Optional[str] = None
-    scene_type: SceneType = "social"
-    status: SceneStatus = "pending"
-
-
-class SceneCreate(SceneBase):
-    campaign_id: int
-    location_id: Optional[int] = None
-
-
-class SceneRead(SceneBase):
-    id: int
-    campaign_id: int
-    location_id: Optional[int]
-
-    class Config:
-        orm_mode = True
-
-
-# ---- NPC ----
-
-class NPCCreate(BaseModel):
-    campaign_id: int
-    name: str
-    role: Optional[str] = None
-    faction: Optional[str] = None
-    description: Optional[str] = None
-
-
-class NPCRead(BaseModel):
-    id: int
-    campaign_id: int
-    name: str
-    role: Optional[str]
-    faction: Optional[str]
-    description: Optional[str]
-    status: str
-
-    class Config:
-        orm_mode = True
-
-
-# ---- Encounter ----
-
-EncounterOutcome = Literal["victory", "draw", "defeat", "retreat"]
-
-
-class EncounterCreate(BaseModel):
-    scene_id: int
-    layout_scheme: Optional[str] = None
-    npc_summary: Optional[str] = None
-    objective_victory: Optional[str] = None
-    objective_draw: Optional[str] = None
-    objective_defeat: Optional[str] = None
-    objective_retreat: Optional[str] = None
-
-
-class EncounterRead(BaseModel):
-    id: int
-    scene_id: int
-    layout_scheme: Optional[str]
-    npc_summary: Optional[str]
-    objective_victory: Optional[str]
-    objective_draw: Optional[str]
-    objective_defeat: Optional[str]
-    objective_retreat: Optional[str]
-    status: str
-    outcome: Optional[str]
-
-    class Config:
-        orm_mode = True
-
-
-class EncounterResolve(BaseModel):
-    outcome: EncounterOutcome
-    defeated_npc_ids: Optional[List[int]] = None
-    gm_notes: Optional[str] = None
-
-
-class EncounterGenerateRequest(BaseModel):
-    difficulty: Optional[str] = "medium"   # easy/medium/hard/deadly - как подсказка модели
-    theme: Optional[str] = None           # "засада культистов в доках"
-    max_enemies: Optional[int] = 8        # потолок по количеству врагов
-
-
-# ---- Check ----
-
-CheckResult = Literal["success", "failure"]
-
-
-class CheckCreate(BaseModel):
-    scene_id: int
-    actor_name: str
-    check_type: str
-    difficulty_label: Optional[str] = None
-    difficulty_value: Optional[int] = None
-    result: CheckResult
-    degrees: Optional[int] = None
-    note: Optional[str] = None
-
-
-class CheckRead(BaseModel):
-    id: int
-    scene_id: int
-    actor_name: str
-    check_type: str
-    difficulty_label: Optional[str]
-    difficulty_value: Optional[int]
-    result: str
-    degrees: Optional[int]
-    note: Optional[str]
-
-    class Config:
-        orm_mode = True
-
-
-# ---- Log ----
-
-class LogEntryRead(BaseModel):
-    id: int
-    campaign_id: int
-    scene_id: Optional[int]
-    entry_type: str
-    text: str
+    title: str
+    world: Optional[str] = None
     created_at: datetime
 
     class Config:
         orm_mode = True
 
 
-# ---- Auto Adventure ----
+class CampaignStateRead(BaseModel):
+    current_scene_id: Optional[int] = None
+    flags_json: Optional[str] = None
+    current_scene: Optional[SceneRead] = None
 
-class AutoAdventureRequest(BaseModel):
+    class Config:
+        orm_mode = True
+
+
+class LogEntryRead(BaseModel):
+    id: int
+    created_at: datetime
+    entry_type: str = LogEntryType.INFO.value
+    content: str
+    metadata_json: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+
+# -------- Autogeneration --------
+
+class AutoGenRequest(BaseModel):
     num_players: int
-    exp_level: int  # XP на персонажа (просто масштаб сложности)
-    world: Optional[str] = None  # "hive_world", "forge_world", "feudal_world" и т.п.
-    random_world: bool = True    # если True и world не задан — мир выбирает модель сама
+    avg_exp: int
+    world: Optional[str] = None
 
 
-class AutoAdventureSummary(BaseModel):
+class AutoGenResponse(BaseModel):
     campaign: CampaignRead
-    locations: List[LocationRead]
-    scenes: List[SceneRead]
 
+
+# -------- Choice / Checks API --------
+
+class MakeChoiceRequest(BaseModel):
+    choice_id: int
+
+
+class CheckRequest(BaseModel):
+    name: str
+    skill: str
+    difficulty: str
+    success: bool
+    degrees: Optional[int] = None
+    notes: Optional[str] = None
+
+
+class SimpleMessageResponse(BaseModel):
+    message: str
+    data: Optional[Any] = None
