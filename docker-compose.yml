@@ -19,7 +19,7 @@ services:
 
       # настройки для backend/app/ollama_client.py
       OLLAMA_BASE_URL: "http://ollama:11434"
-      OLLAMA_MODEL: "llama3.2:1b"
+      OLLAMA_MODEL: "qwen2.5:0.5b"
       OLLAMA_TIMEOUT: "900.0"
 
     volumes:

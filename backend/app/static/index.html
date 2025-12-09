@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <title>Dark Heresy AR GM</title>
   <style>
+    :root {
+      color-scheme: dark;
+    }
     body {
       margin: 0;
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -29,21 +32,24 @@
       padding: 12px;
       box-sizing: border-box;
       gap: 8px;
+      min-width: 0;
     }
     h1 {
       margin: 0 0 8px;
       font-size: 18px;
     }
     h2 {
-      margin: 12px 0 4px;
+      margin: 10px 0 4px;
       font-size: 15px;
-      border-bottom: 1px solid #333;
-      padding-bottom: 2px;
+    }
+    h3 {
+      margin: 6px 0 4px;
+      font-size: 13px;
     }
     label {
-      font-size: 13px;
+      font-size: 12px;
       display: block;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
     }
     input, select, button, textarea {
       font-family: inherit;
@@ -69,6 +75,7 @@
       padding: 6px 10px;
       color: #f5f5f5;
       cursor: pointer;
+      font-weight: 500;
     }
     button.secondary {
       background: #333;
@@ -98,16 +105,40 @@
     }
     .row {
       display: flex;
-      gap: 12px;
+      gap: 10px;
+      flex: 1;
+      min-height: 0;
     }
     .col {
       flex: 1;
       border: 1px solid #222;
-      border-radius: 4px;
+      border-radius: 6px;
       padding: 8px;
       box-sizing: border-box;
       background: #080910;
       overflow-y: auto;
+      min-width: 0;
+    }
+    .scene-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .scene-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .scene-type {
+      font-size: 11px;
+      color: #aaa;
+    }
+    .scene-body {
+      font-size: 13px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      margin-top: 6px;
+      margin-bottom: 6px;
     }
     .ascii-map {
       font-family: "Fira Code", "Consolas", monospace;
@@ -117,14 +148,29 @@
       border: 1px solid #333;
       white-space: pre;
       font-size: 11px;
+      margin-top: 4px;
+    }
+    .location-block {
+      font-size: 12px;
+      margin-top: 6px;
+    }
+    .location-name {
+      font-weight: 600;
     }
     .gm-notes {
       font-size: 12px;
-      color: #aaa;
+      color: #ddd;
       background: #0b0d16;
       padding: 6px;
       border-radius: 4px;
       border: 1px dashed #444;
+      margin-top: 6px;
+    }
+    .gm-notes-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 4px;
     }
     .dialogue-block {
       font-size: 13px;
@@ -132,34 +178,70 @@
       padding: 6px;
       border-radius: 4px;
       border: 1px solid #222;
+      margin-top: 6px;
+    }
+    .dialogue-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      color: #999;
+      margin-bottom: 4px;
+    }
+    .dialogue-line {
+      margin-bottom: 2px;
     }
     .dialogue-line span.speaker {
       color: #f0c674;
       font-weight: 600;
     }
+    .encounter-block {
+      font-size: 12px;
+      margin-top: 6px;
+      padding: 6px;
+      border-radius: 4px;
+      border: 1px solid #222;
+      background: #05060f;
+    }
     .choices {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 6px;
+      margin-top: 10px;
     }
     .choice-btn {
       text-align: left;
       width: 100%;
     }
+    .choice-hint {
+      font-size: 11px;
+      color: #bbb;
+      margin-top: 2px;
+    }
+    .badge {
+      display: inline-block;
+      padding: 1px 5px;
+      border-radius: 999px;
+      font-size: 10px;
+      background: #333;
+      margin-left: 4px;
+    }
     .log-list {
       font-size: 12px;
-      max-height: 220px;
+      max-height: 240px;
       overflow-y: auto;
+      border: 1px solid #222;
+      border-radius: 4px;
+      padding: 4px 6px;
+      background: #05060c;
     }
     .log-item {
       border-bottom: 1px solid #111;
-      padding: 4px 0;
+      padding: 3px 0;
     }
     .log-date {
       color: #777;
-      font-size: 11px;
+      font-size: 10px;
     }
-    .badge {
+    .log-type {
       display: inline-block;
       padding: 1px 4px;
       border-radius: 4px;
@@ -167,11 +249,31 @@
       font-size: 10px;
       margin-right: 4px;
     }
+    .campaign-meta {
+      font-size: 12px;
+      color: #ddd;
+    }
+    .campaign-meta-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+    .campaign-premise {
+      margin-top: 4px;
+      white-space: pre-wrap;
+    }
+    .intro-snippet {
+      margin-top: 4px;
+      font-size: 12px;
+      white-space: pre-wrap;
+      color: #bbb;
+    }
   </style>
 </head>
 <body>
   <div class="sidebar">
     <h1>Dark Heresy GM</h1>
+
     <div>
       <h2>Новое приключение</h2>
       <label>Игроков</label>
@@ -179,60 +281,66 @@
       <label>Средний опыт (exp)</label>
       <input type="number" id="avgExp" min="0" max="10000" value="400" />
       <label>Мир / сектор (опционально)</label>
-      <input type="text" id="world" placeholder="Скintila, Субсектор Каликсиса..." />
+      <input type="text" id="world" placeholder="Скintila, субсектор Каликсиса..." />
       <button id="btnGenerate">Создать приключение</button>
     </div>
 
     <div>
-      <h2>Кампании</h2>
+      <h2>Приключения</h2>
       <div id="campaignList" class="campaign-list"></div>
     </div>
   </div>
 
   <div class="main">
-    <div class="row" style="flex: 1; min-height: 0;">
-      <div class="col" id="campaignInfo">
-        <h2>Кампания</h2>
-        <div id="campaignMeta"></div>
-        <h3>Вступление</h3>
-        <div id="campaignIntro" style="font-size: 13px; white-space: pre-wrap;"></div>
-      </div>
+    <div class="campaign-meta">
+      <div class="campaign-meta-title" id="campaignTitle">Выберите или создайте приключение</div>
+      <div id="campaignWorld"></div>
+      <div class="campaign-premise" id="campaignPremise"></div>
+      <div class="intro-snippet" id="campaignIntro"></div>
+    </div>
 
-      <div class="col" id="sceneInfo">
-        <h2>Текущая сцена</h2>
-        <div id="sceneTitle"></div>
-        <div id="sceneType" style="font-size: 11px; color: #888; margin-bottom: 4px;"></div>
-        <div id="scenePlayerText" style="font-size: 13px; white-space: pre-wrap; margin-bottom: 6px;"></div>
+    <div class="row">
+      <div class="col" id="sceneCol">
+        <div class="scene-header">
+          <div class="scene-title" id="sceneTitle">Нет активной сцены</div>
+          <div class="scene-type" id="sceneType"></div>
+        </div>
 
-        <div id="sceneDialogues" class="dialogue-block" style="display:none; margin-bottom: 6px;"></div>
+        <div class="scene-body" id="scenePlayerText"></div>
 
-        <div id="sceneGMNotes" class="gm-notes" style="display:none; margin-bottom: 6px;"></div>
+        <div id="sceneDialogues" class="dialogue-block" style="display:none;">
+          <div class="dialogue-title">Примерные реплики</div>
+          <div id="dialogueLines"></div>
+        </div>
 
-        <div>
-          <h3 style="font-size: 13px; margin: 6px 0 2px;">Локация</h3>
-          <div id="locationName" style="font-size: 13px; font-weight: 600;"></div>
-          <div id="locationDesc" style="font-size: 12px; white-space: pre-wrap; margin-bottom: 4px;"></div>
+        <div id="sceneGMNotes" class="gm-notes" style="display:none;">
+          <div class="gm-notes-title">Заметки мастера</div>
+          <div id="gmNotesBody"></div>
+        </div>
+
+        <div class="location-block">
+          <div class="location-name" id="locationName"></div>
+          <div id="locationDesc"></div>
           <div id="asciiMap" class="ascii-map" style="display:none;"></div>
         </div>
 
-        <div id="sceneEncounter" style="font-size: 12px; margin-top: 6px;"></div>
+        <div id="sceneEncounter" class="encounter-block" style="display:none;"></div>
 
-        <div style="margin-top: 8px;">
-          <h3 style="font-size: 13px; margin: 6px 0 2px;">Варианты действий</h3>
-          <div id="sceneChoices" class="choices"></div>
-        </div>
+        <div class="choices" id="sceneChoices"></div>
       </div>
 
-      <div class="col">
+      <div class="col" id="rightCol">
         <h2>Журнал</h2>
         <div id="logList" class="log-list"></div>
 
         <h2>Проверка</h2>
-        <div style="font-size: 12px; margin-bottom: 4px;">Минимум проверок на ПК. Просто фиксируем результат.</div>
+        <div style="font-size: 12px; margin-bottom: 4px;">
+          Здесь мы просто фиксируем результаты бросков. Игроки кидают кости на столе.
+        </div>
         <label>Название проверки</label>
         <input id="checkName" placeholder="Запугивание культиста" />
         <label>Навык / характеристика</label>
-        <input id="checkSkill" placeholder="Запугивание, Воля" />
+        <input id="checkSkill" placeholder="Запугивание, Воля, Внимание..." />
         <label>Сложность (текст)</label>
         <input id="checkDifficulty" placeholder="+10, -20 и т.п." />
         <label>Результат</label>
@@ -267,7 +375,7 @@
 
     let campaigns = [];
     let currentCampaignId = null;
-    let campaignScenesById = new Map();
+    let scenesById = new Map();
 
     async function loadCampaigns() {
       campaigns = await api("/campaigns");
@@ -293,71 +401,62 @@
       const state = await api(`/campaigns/${id}/state`);
       const logs = await api(`/campaigns/${id}/logs`);
 
-      // индексируем сцены по id
-      campaignScenesById = new Map();
-      full.scenes.forEach(s => campaignScenesById.set(s.id, s));
+      scenesById = new Map();
+      full.scenes.forEach(s => scenesById.set(s.id, s));
 
-      renderCampaign(full, state, logs);
+      renderCampaignMeta(full);
+      renderScene(full, state.current_scene);
+      renderLogs(logs);
     }
 
-    function renderCampaign(campaign, state, logs) {
-      // мета
-      const metaEl = document.getElementById("campaignMeta");
-      metaEl.innerHTML = `
-        <div><b>${campaign.title}</b></div>
-        <div style="font-size: 12px; color:#aaa;">Мир: ${campaign.world || "не указан"}</div>
-        <div style="font-size: 12px; margin-top:4px;">${campaign.premise || ""}</div>
-      `;
-
+    function renderCampaignMeta(campaign) {
+      document.getElementById("campaignTitle").textContent = campaign.title;
+      document.getElementById("campaignWorld").textContent = campaign.world
+        ? `Мир/сектор: ${campaign.world}`
+        : "Мир/сектор: не указан";
+      document.getElementById("campaignPremise").textContent = campaign.premise || "";
       document.getElementById("campaignIntro").textContent = campaign.intro_text || "";
-
-      // сцена
-      let scene = state.current_scene;
-      if (!scene && state.current_scene_id && campaignScenesById.has(state.current_scene_id)) {
-        scene = campaignScenesById.get(state.current_scene_id);
-      }
-
-      renderScene(campaign, scene);
-      renderLogs(logs);
     }
 
     function renderScene(campaign, scene) {
       const titleEl = document.getElementById("sceneTitle");
       const typeEl = document.getElementById("sceneType");
       const pTextEl = document.getElementById("scenePlayerText");
-      const dlgEl = document.getElementById("sceneDialogues");
-      const gmEl = document.getElementById("sceneGMNotes");
+      const dlgBlock = document.getElementById("sceneDialogues");
+      const dlgLines = document.getElementById("dialogueLines");
+      const gmBlock = document.getElementById("sceneGMNotes");
+      const gmBody = document.getElementById("gmNotesBody");
       const locNameEl = document.getElementById("locationName");
       const locDescEl = document.getElementById("locationDesc");
       const asciiEl = document.getElementById("asciiMap");
-      const encEl = document.getElementById("sceneEncounter");
+      const encBlock = document.getElementById("sceneEncounter");
       const choicesEl = document.getElementById("sceneChoices");
 
       if (!scene) {
         titleEl.textContent = "Нет активной сцены";
         typeEl.textContent = "";
         pTextEl.textContent = "";
-        dlgEl.style.display = "none";
-        gmEl.style.display = "none";
+        dlgBlock.style.display = "none";
+        gmBlock.style.display = "none";
         locNameEl.textContent = "";
         locDescEl.textContent = "";
         asciiEl.style.display = "none";
-        encEl.textContent = "";
+        encBlock.style.display = "none";
         choicesEl.innerHTML = "";
         return;
       }
 
       titleEl.textContent = scene.name;
-      typeEl.textContent = `Тип: ${scene.scene_type}`;
+      typeEl.textContent = `Сцена: ${scene.scene_type}`;
       pTextEl.textContent = scene.player_text || "";
 
-      // диалоги
+      // Диалоги
+      dlgLines.innerHTML = "";
       if (scene.dialogues_json) {
         try {
           const arr = JSON.parse(scene.dialogues_json);
           if (Array.isArray(arr) && arr.length) {
-            dlgEl.style.display = "block";
-            dlgEl.innerHTML = "<div style='font-weight:600;margin-bottom:4px;'>Примерные реплики</div>";
+            dlgBlock.style.display = "block";
             arr.forEach(line => {
               const div = document.createElement("div");
               div.className = "dialogue-line";
@@ -368,27 +467,27 @@
               text.textContent = line.text || "";
               div.appendChild(speaker);
               div.appendChild(text);
-              dlgEl.appendChild(div);
+              dlgLines.appendChild(div);
             });
           } else {
-            dlgEl.style.display = "none";
+            dlgBlock.style.display = "none";
           }
         } catch {
-          dlgEl.style.display = "none";
+          dlgBlock.style.display = "none";
         }
       } else {
-        dlgEl.style.display = "none";
+        dlgBlock.style.display = "none";
       }
 
-      // заметки мастеру
+      // Заметки мастеру
       if (scene.gm_notes) {
-        gmEl.style.display = "block";
-        gmEl.textContent = scene.gm_notes;
+        gmBlock.style.display = "block";
+        gmBody.textContent = scene.gm_notes;
       } else {
-        gmEl.style.display = "none";
+        gmBlock.style.display = "none";
       }
 
-      // локация
+      // Локация
       const loc = campaign.locations.find(l => l.id === scene.location_id);
       if (loc) {
         locNameEl.textContent = loc.name;
@@ -405,42 +504,51 @@
         asciiEl.style.display = "none";
       }
 
-      // encounter
+      // Энкаунтер
       if (scene.encounter) {
         const e = scene.encounter;
-        encEl.innerHTML = "";
+        let html = "";
         if (e.objectives) {
-          encEl.innerHTML += `<div><b>Цель:</b> ${e.objectives}</div>`;
+          html += `<div><b>Цель сцены:</b> ${e.objectives}</div>`;
         }
         if (e.npc_summary) {
-          encEl.innerHTML += `<div><b>Силы противника:</b> ${e.npc_summary}</div>`;
+          html += `<div><b>Противники / участники:</b> ${e.npc_summary}</div>`;
         }
         if (e.victory_text || e.defeat_text || e.escape_text) {
-          encEl.innerHTML += `<div style="margin-top:4px;"><b>Исходы:</b></div>`;
-          if (e.victory_text) encEl.innerHTML += `<div>Победа: ${e.victory_text}</div>`;
-          if (e.defeat_text) encEl.innerHTML += `<div>Поражение: ${e.defeat_text}</div>`;
-          if (e.escape_text) encEl.innerHTML += `<div>Бегство: ${e.escape_text}</div>`;
+          html += `<div style="margin-top:4px;"><b>Варианты исхода:</b></div>`;
+          if (e.victory_text) html += `<div>Победа: ${e.victory_text}</div>`;
+          if (e.defeat_text) html += `<div>Провал: ${e.defeat_text}</div>`;
+          if (e.escape_text) html += `<div>Бегство: ${e.escape_text}</div>`;
         }
+        encBlock.innerHTML = html;
+        encBlock.style.display = html ? "block" : "none";
       } else {
-        encEl.textContent = "";
+        encBlock.style.display = "none";
       }
 
-      // выборы
+      // Выборы → кнопки (страница за страницей)
       choicesEl.innerHTML = "";
       if (scene.choices && scene.choices.length) {
         scene.choices.forEach(ch => {
+          const wrapper = document.createElement("div");
           const btn = document.createElement("button");
           btn.className = "choice-btn";
           btn.textContent = ch.label;
           btn.onclick = () => makeChoice(ch.id);
-          btn.title = ch.result_hint || ch.description || "";
-          choicesEl.appendChild(btn);
+          wrapper.appendChild(btn);
+          if (ch.result_hint || ch.description) {
+            const hint = document.createElement("div");
+            hint.className = "choice-hint";
+            hint.textContent = ch.result_hint || ch.description;
+            wrapper.appendChild(hint);
+          }
+          choicesEl.appendChild(wrapper);
         });
       } else {
         const span = document.createElement("div");
         span.style.fontSize = "12px";
-        span.style.color = "#777";
-        span.textContent = "Выборов нет — можно перейти к следующей сцене по своему усмотрению.";
+        span.style.color = "#999";
+        span.textContent = "Выборов больше нет. Если это финальная сцена, опишите исход игрокам и завершите приключение.";
         choicesEl.appendChild(span);
       }
     }
@@ -456,7 +564,12 @@
         date.className = "log-date";
         date.textContent = d.toLocaleString();
         const content = document.createElement("div");
-        content.innerHTML = `<span class="badge">${l.entry_type}</span>${l.content}`;
+        const typeSpan = document.createElement("span");
+        typeSpan.className = "log-type";
+        typeSpan.textContent = l.entry_type;
+        content.appendChild(typeSpan);
+        const textNode = document.createTextNode(" " + l.content);
+        content.appendChild(textNode);
         div.appendChild(date);
         div.appendChild(content);
         cont.appendChild(div);
@@ -473,10 +586,11 @@
         });
         const full = await api(`/campaigns/${currentCampaignId}`);
         const logs = await api(`/campaigns/${currentCampaignId}/logs`);
-        // обновим индекс сцен
-        campaignScenesById = new Map();
-        full.scenes.forEach(s => campaignScenesById.set(s.id, s));
-        renderCampaign(full, state, logs);
+        scenesById = new Map();
+        full.scenes.forEach(s => scenesById.set(s.id, s));
+        renderCampaignMeta(full);
+        renderScene(full, state.current_scene);
+        renderLogs(logs);
       } catch (e) {
         alert("Ошибка при выборе: " + e.message);
       }
@@ -484,7 +598,7 @@
 
     async function saveCheck() {
       if (!currentCampaignId) {
-        alert("Сначала выбери кампанию");
+        alert("Сначала выберите приключение");
         return;
       }
       const name = document.getElementById("checkName").value || "Безымянная проверка";

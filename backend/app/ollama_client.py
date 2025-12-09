@@ -5,10 +5,10 @@ from typing import Any, Dict, Optional
 import httpx
 
 
-# Базовые настройки Ollama берём из переменных окружения
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434").rstrip("/")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:1b")  # можно поменять через env
-OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT", "1200.0"))  # большой таймаут, по умолчанию 600 сек
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:0.5b")
+# большой таймаут – генерация на VPS может быть медленной
+OLLAMA_TIMEOUT = float(os.getenv("OLLAMA_TIMEOUT", "900.0"))  # сек
 
 
 class OllamaError(Exception):
@@ -16,22 +16,50 @@ class OllamaError(Exception):
     pass
 
 
+def _try_repair_json_prefix(raw: str) -> Dict[str, Any]:
+    """
+    Грубый, но практичный ремонт JSON:
+    - Берём строку начиная с первого '{'
+    - Идём с конца к началу и ищем самый длинный префикс, который парсится как JSON.
+    Это позволит вытащить хотя бы часть структуры, если модель отрубилась на полпути.
+    """
+    if not raw:
+        raise OllamaError("Empty JSON string, nothing to repair")
+
+    start = raw.find("{")
+    if start == -1:
+        raise OllamaError(f"No '{{' in response, cannot repair. Sample: {raw[:200]}")
+
+    trimmed = raw[start:]
+
+    # идём с конца и ищем максимальный валидный префикс
+    for end in range(len(trimmed), 1, -1):
+        chunk = trimmed[:end]
+        try:
+            obj = json.loads(chunk)
+            # небольшой лог в stdout, чтобы видеть, что сработал режим ремонта
+            print("[ollama_client] JSON repaired by prefix truncation at length", end)
+            return obj
+        except json.JSONDecodeError:
+            continue
+
+    raise OllamaError(f"Unable to repair JSON; sample: {trimmed[:200]}")
+
+
 async def generate_json(prompt: str, system_prompt: Optional[str] = None) -> Dict[str, Any]:
     """
     Вызывает локальный Ollama (/api/generate) и ожидает, что модель вернёт
     ВНУТРИ поля `response` корректную JSON-строку.
 
-    Ожидаемый ответ от Ollama (при stream=false и format="json"):
+    Формат ответа от Ollama (stream=false, format=\"json\"):
 
     {
       "model": "...",
       "created_at": "...",
-      "response": "{ ... здесь JSON-строка ... }",
+      "response": "{ ... JSON-строка ... }",
       "done": true,
       ...
     }
-
-    Мы берём `response`, .strip(), и делаем json.loads(...) → Dict[str, Any].
     """
     if not OLLAMA_BASE_URL:
         raise OllamaError("OLLAMA_BASE_URL is not set")
@@ -43,30 +71,33 @@ async def generate_json(prompt: str, system_prompt: Optional[str] = None) -> Dic
     payload: Dict[str, Any] = {
         "model": OLLAMA_MODEL,
         "prompt": prompt,
-        "format": "json",   # просим модель вернуть JSON-строку
+        "format": "json",   # просим именно JSON-строку
         "stream": False,
         "options": {
             "temperature": 0.7,
+            # даём достаточно токенов, чтобы успеть дописать JSON
+            "num_predict": 2048,
         },
     }
 
-    # если есть системный промпт — добавим его
     if system_prompt:
-        # для generate можно использовать "system" как общий контекст
         payload["system"] = system_prompt
 
     try:
         async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT) as client:
             resp = await client.post(url, json=payload)
     except httpx.RequestError as e:
-        raise OllamaError(f"HTTP error calling Ollama: {e}") from e
+        detail = f"{e.__class__.__name__}: {str(e) or repr(e)}"
+        raise OllamaError(f"HTTP error calling Ollama: {detail}") from e
 
-    # Ollama сама может вернуть JSON с ключом "error"
+    # пробуем читать ответ Ollama как JSON
     try:
         data = resp.json()
     except json.JSONDecodeError as e:
         text_part = (resp.text or "")[:500]
-        raise OllamaError(f"Non-JSON response from Ollama: {text_part}") from e
+        raise OllamaError(
+            f"Non-JSON response from Ollama (status={resp.status_code}): {text_part}"
+        ) from e
 
     if resp.status_code != 200:
         raise OllamaError(f"Ollama HTTP {resp.status_code}: {data}")
@@ -81,9 +112,10 @@ async def generate_json(prompt: str, system_prompt: Optional[str] = None) -> Dic
     if not raw:
         raise OllamaError(f"Ollama returned empty response field: {data}")
 
+    # сначала честно пытаемся распарсить как есть
     try:
         return json.loads(raw)
-    except json.JSONDecodeError as e:
-        # если модель слегка накосячила и выдала невалидный JSON —
-        # можно здесь сделать доп. обработку/логирование
-        raise OllamaError(f"Failed to parse JSON from Ollama response: {raw[:500]}") from e
+    except json.JSONDecodeError:
+        # если не получилось – пробуем "подлечить" обрезанный JSON
+        repaired = _try_repair_json_prefix(raw)
+        return repaired
